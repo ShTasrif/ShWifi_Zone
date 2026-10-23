@@ -3,37 +3,16 @@
 # Router IP: 192.168.2.1
 
 echo -e "\n\033[1;36m=== TASRIF WIFI ZONE Pro Installer ===\033[0m"
+echo "[*] Initializing setup... Please wait, do not close the terminal."
 
-# 1. NETWORK & IP SETUP
-echo "[*] Configuring Router IP and WiFi..."
-uci set network.lan.ipaddr='192.168.2.1'
-uci commit network
-/etc/init.d/network restart
-
-uci -q delete wireless.repeater
-while uci -q delete wireless.@wifi-iface[0]; do :; done
-uci set wireless.radio0.disabled='0'
-uci add wireless wifi-iface
-uci set wireless.@wifi-iface[-1].device='radio0'
-uci set wireless.@wifi-iface[-1].network='lan'
-uci set wireless.@wifi-iface[-1].mode='ap'
-uci set wireless.@wifi-iface[-1].ssid='TASRIF WIFI ZONE'
-uci set wireless.@wifi-iface[-1].encryption='none' 
-uci commit wireless
-wifi reload
-
-# 2. CLEANUP & FIX 404 AUTO-POPUP
-echo "[*] Cleaning old files & Fixing Pop-Up..."
+# 1. CLEANUP OLD FILES & DIRECTORIES
+echo "[*] Cleaning old configurations..."
 rm -rf /www/cgi-bin/auth /www/cgi-bin/admin_api /www/admin /www/index.html 2>/dev/null
-uci set uhttpd.main.error_page='/index.html'
-uci commit uhttpd
-/etc/init.d/uhttpd restart >/dev/null 2>&1
-
 mkdir -p /www/cgi-bin /www/admin
 touch /etc/vouchers.txt /tmp/active_users.txt
 if ! grep -q "123456" /etc/vouchers.txt; then echo "123456|60" > /etc/vouchers.txt; fi
 
-# 3. PREMIUM CAPTIVE PORTAL UI (Glassmorphism)
+# 2. PREMIUM CAPTIVE PORTAL UI (Glassmorphism)
 echo "[*] Generating Premium User Portal..."
 cat << 'EOF' > /www/index.html
 <!DOCTYPE html>
@@ -93,7 +72,7 @@ cat << 'EOF' > /www/index.html
 </html>
 EOF
 
-# 4. PROFESSIONAL ADMIN UI
+# 3. PROFESSIONAL ADMIN UI
 echo "[*] Generating Pro Admin Dashboard..."
 cat << 'EOF' > /www/admin/index.html
 <!DOCTYPE html>
@@ -194,8 +173,8 @@ cat << 'EOF' > /www/admin/index.html
 </html>
 EOF
 
-# 5. BACKEND APIs
-echo "[*] Compiling CGI APIs..."
+# 4. BACKEND APIs & FIREWALL CRON
+echo "[*] Compiling CGI APIs and Cron Jobs..."
 cat << 'EOF' > /www/cgi-bin/auth
 #!/bin/sh
 echo "Content-type: application/json"
@@ -234,11 +213,8 @@ elif echo "$QUERY_STRING" | grep -q "action=generate"; then
     exit 0
 fi
 EOF
-
 chmod +x /www/cgi-bin/*
 
-# 6. FIREWALL & BACKGROUND MANAGER (Dynamic IP 192.168.2.1 Fix)
-echo "[*] Setting up Firewall & Cron..."
 cat << 'EOF' > /usr/bin/session_manager.sh
 #!/bin/sh
 CURRENT_TIME=$(date +%s)
@@ -264,12 +240,35 @@ iptables -t nat -A CAPTIVE_PORTAL -d 192.168.2.1 -j RETURN
 iptables -t nat -A CAPTIVE_PORTAL -p tcp -j DNAT --to-destination 192.168.2.1:80
 EOF
 
-/etc/init.d/firewall restart >/dev/null 2>&1
-/etc/init.d/cron restart >/dev/null 2>&1
+# 5. APPLY ALL UCI SETTINGS (Network, WiFi, uhttpd)
+echo "[*] Configuring Final Router Settings..."
+uci set network.lan.ipaddr='192.168.2.1'
 
+uci -q delete wireless.repeater
+while uci -q delete wireless.@wifi-iface[0]; do :; done
+uci set wireless.radio0.disabled='0'
+uci add wireless wifi-iface
+uci set wireless.@wifi-iface[-1].device='radio0'
+uci set wireless.@wifi-iface[-1].network='lan'
+uci set wireless.@wifi-iface[-1].mode='ap'
+uci set wireless.@wifi-iface[-1].ssid='TASRIF WIFI ZONE'
+uci set wireless.@wifi-iface[-1].encryption='none' 
+
+uci set uhttpd.main.error_page='/index.html'
+
+uci commit network
+uci commit wireless
+uci commit uhttpd
+
+# 6. REBOOT TRIGGER
 echo -e "\n\033[1;32m[+] Installation Successful!\033[0m"
 echo -e "================================================="
-echo -e "🌐 \033[1;36mCaptive Portal:\033[0m http://192.168.2.1"
-echo -e "⚙️ \033[1;33mCustom Admin:  \033[0m http://192.168.2.1/admin"
-echo -e "🛠️ \033[1;34mOpenWrt LuCI:  \033[0m http://192.168.2.1/cgi-bin/luci"
+echo -e "🌐 Captive Portal: http://192.168.2.1"
+echo -e "⚙️ Custom Admin:  http://192.168.2.1/admin"
+echo -e "🛠️ OpenWrt LuCI:  http://192.168.2.1/cgi-bin/luci"
 echo -e "================================================="
+echo -e "\033[1;33m[*] Applying changes and REBOOTING the router now...\033[0m"
+echo -e "Please reconnect to 'TASRIF WIFI ZONE' after 1 minute."
+
+(sleep 3; reboot) &
+exit 0
