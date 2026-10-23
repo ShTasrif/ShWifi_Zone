@@ -1,214 +1,192 @@
 #!/bin/sh
-# OpenWrt Captive Portal Auto Setup (WAN-DHCP Mode)
-# Author: CyberSH
+# TASRIF WIFI ZONE - Professional Captive Portal Setup
+# Router IP: 192.168.2.1
 
-echo -e "\n\033[1;36m=== CyberSH Captive Portal Pro Installer ===\033[0m"
+echo -e "\n\033[1;36m=== TASRIF WIFI ZONE Pro Installer ===\033[0m"
 
-# 1. CLEANUP OLD INSTALLATION
-echo "[*] Removing old configuration..."
-rm -rf /www/cgi-bin/auth /www/cgi-bin/admin_api /www/cgi-bin/wifi_* 2>/dev/null
-rm -rf /www/admin /www/index.html /tmp/active_users.txt /etc/vouchers.txt 2>/dev/null
-sed -i '/session_manager.sh/d' /etc/crontabs/root 2>/dev/null
-sed -i '/CAPTIVE_PORTAL/d' /etc/firewall.user 2>/dev/null
+# 1. NETWORK & IP SETUP
+echo "[*] Configuring Router IP and WiFi..."
+uci set network.lan.ipaddr='192.168.2.1'
+uci commit network
+/etc/init.d/network restart
 
-# 2. NETWORK & WIFI SETUP (WAN DHCP & Open WiFi AP)
-echo "[*] Configuring Network & WiFi..."
 uci -q delete wireless.repeater
-# Delete all existing WiFi interfaces and create a fresh Access Point
 while uci -q delete wireless.@wifi-iface[0]; do :; done
-
 uci set wireless.radio0.disabled='0'
 uci add wireless wifi-iface
 uci set wireless.@wifi-iface[-1].device='radio0'
 uci set wireless.@wifi-iface[-1].network='lan'
 uci set wireless.@wifi-iface[-1].mode='ap'
-uci set wireless.@wifi-iface[-1].ssid='『TASRIF』ᴮᴬᴰʙᴏʏ'
-# Captive Portals require OPEN encryption to auto-prompt devices
+uci set wireless.@wifi-iface[-1].ssid='TASRIF WIFI ZONE'
 uci set wireless.@wifi-iface[-1].encryption='none' 
-
 uci commit wireless
 wifi reload
 
-# 3. CREATE DIRECTORIES & FILES
-echo "[*] Creating System Files..."
+# 2. CLEANUP & FIX 404 AUTO-POPUP
+echo "[*] Cleaning old files & Fixing Pop-Up..."
+rm -rf /www/cgi-bin/auth /www/cgi-bin/admin_api /www/admin /www/index.html 2>/dev/null
+uci set uhttpd.main.error_page='/index.html'
+uci commit uhttpd
+/etc/init.d/uhttpd restart >/dev/null 2>&1
+
 mkdir -p /www/cgi-bin /www/admin
 touch /etc/vouchers.txt /tmp/active_users.txt
-echo "123456|60" > /etc/vouchers.txt # Default test voucher
+if ! grep -q "123456" /etc/vouchers.txt; then echo "123456|60" > /etc/vouchers.txt; fi
 
-# 4. USER PORTAL UI (index.html)
-echo "[*] Generating User UI..."
+# 3. PREMIUM CAPTIVE PORTAL UI (Glassmorphism)
+echo "[*] Generating Premium User Portal..."
 cat << 'EOF' > /www/index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberSH WiFi Zone</title>
+    <title>TASRIF WIFI ZONE</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1e3c72, #2a5298); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #333; }
-        .box { background: rgba(255, 255, 255, 0.95); padding: 40px 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; width: 90%; max-width: 350px; }
-        h2 { margin-top: 0; color: #1e3c72; }
-        input { width: 100%; padding: 12px; margin: 20px 0; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; text-align: center; font-weight: bold; }
-        input:focus { outline: none; border-color: #2a5298; }
-        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #218838; }
-        .footer { margin-top: 20px; font-size: 12px; color: #777; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; padding: 0; height: 100vh; display: flex; align-items: center; justify-content: center; background: url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1920') no-repeat center center/cover; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); }
+        .login-box { position: relative; z-index: 1; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 40px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); text-align: center; width: 90%; max-width: 400px; color: white; box-shadow: 0 15px 25px rgba(0,0,0,0.5); }
+        h1 { margin: 0 0 10px; font-size: 28px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #00e6ff; text-shadow: 0 0 10px rgba(0, 230, 255, 0.5); }
+        p { margin-bottom: 30px; font-size: 14px; color: #ddd; }
+        input { width: 100%; padding: 15px; margin-bottom: 20px; border: none; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; font-size: 16px; text-align: center; outline: none; border: 1px solid transparent; transition: 0.3s; }
+        input:focus { border: 1px solid #00e6ff; background: rgba(0,0,0,0.8); }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; background: linear-gradient(45deg, #00e6ff, #0077ff); color: white; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 5px 15px rgba(0, 119, 255, 0.4); }
+        button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 119, 255, 0.6); }
+        #msg { margin-top: 15px; font-weight: bold; min-height: 20px; }
+        .footer { margin-top: 20px; font-size: 12px; color: #aaa; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>📶 WiFi Login</h2>
-        <p>Enter your voucher to connect</p>
-        <input type="text" id="voucher" placeholder="Enter Voucher Code" required>
-        <button onclick="login()">Connect to Internet</button>
-        <p id="msg" style="margin-top:15px; font-weight:bold;"></p>
-        <div class="footer">Powered by CyberSH</div>
+    <div class="overlay"></div>
+    <div class="login-box">
+        <h1>TASRIF WIFI</h1>
+        <p>Premium Internet Access Zone</p>
+        <input type="text" id="voucher" placeholder="Enter Voucher Code" required autocomplete="off">
+        <button id="connBtn" onclick="login()">CONNECT NOW</button>
+        <div id="msg"></div>
+        <div class="footer">&copy; TASRIF CyberSH. All Rights Reserved.</div>
     </div>
     <script>
         function login() {
             let code = document.getElementById('voucher').value;
-            let btn = document.querySelector('button');
-            btn.innerText = "Connecting...";
+            let btn = document.getElementById('connBtn');
+            let msg = document.getElementById('msg');
+            if(!code) { msg.innerText = "Please enter a code!"; msg.style.color = "#ff4d4d"; return; }
+            
+            btn.innerText = "AUTHENTICATING...";
             fetch('/cgi-bin/auth', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: 'voucher=' + encodeURIComponent(code)
             }).then(res => res.json()).then(data => {
-                let msg = document.getElementById('msg');
-                msg.style.color = (data.status === 'success') ? '#28a745' : '#dc3545';
+                msg.style.color = (data.status === 'success') ? '#00ff88' : '#ff4d4d';
                 msg.innerText = data.message;
-                btn.innerText = "Connect to Internet";
-                if(data.status === 'success') setTimeout(() => window.location.href = 'http://neverssl.com', 2000);
-            }).catch(() => {
-                document.getElementById('msg').innerText = "Network Error";
-                btn.innerText = "Connect to Internet";
-            });
+                if(data.status === 'success') {
+                    btn.innerText = "CONNECTED";
+                    btn.style.background = "linear-gradient(45deg, #00ff88, #00aa55)";
+                    setTimeout(() => window.location.href = 'http://neverssl.com', 1500);
+                } else { btn.innerText = "CONNECT NOW"; }
+            }).catch(() => { msg.innerText = "Network Error!"; btn.innerText = "CONNECT NOW"; });
         }
     </script>
 </body>
 </html>
 EOF
 
-# 5. PROFESSIONAL ADMIN PANEL UI
+# 4. PROFESSIONAL ADMIN UI
 echo "[*] Generating Pro Admin Dashboard..."
 cat << 'EOF' > /www/admin/index.html
 <!DOCTYPE html>
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberSH Admin Pro</title>
+    <title>TASRIF - Network Admin</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .stat-card { background: #1e1e1e; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #333; }
-        .stat-card h3 { margin: 0; color: #888; font-size: 14px; text-transform: uppercase; }
-        .stat-card h1 { margin: 10px 0 0; font-size: 36px; color: #4CAF50; }
-        .nav { display: flex; gap: 10px; margin-bottom: 20px; }
-        .nav button { flex: 1; padding: 12px; background: #2a2a2a; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .nav button.active, .nav button:hover { background: #4CAF50; }
-        .tab { display: none; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; }
-        .active-tab { display: block; }
-        input, select, textarea { width: 100%; padding: 12px; margin: 10px 0; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box; }
-        button.action-btn { background: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
-        button.action-btn:hover { background: #0056b3; }
-        textarea { height: 300px; font-family: monospace; }
-        ul { list-style: none; padding: 0; margin: 0; }
-        li { background: #2a2a2a; padding: 10px; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; }
+        :root { --bg: #0f172a; --card: #1e293b; --primary: #3b82f6; --text: #f8fafc; --success: #10b981; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+        .header h2 { margin: 0; color: var(--primary); }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; border: 1px solid #334155; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card h3 { margin: 0; color: #94a3b8; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .card h1 { margin: 15px 0 0; font-size: 40px; color: var(--text); }
+        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #334155; }
+        select, button { padding: 12px; border-radius: 8px; border: none; font-size: 16px; margin-right: 10px; }
+        select { background: #334155; color: white; outline: none; }
+        button { background: var(--primary); color: white; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { opacity: 0.9; }
+        .table-container { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; text-transform: uppercase; font-size: 12px; }
+        .badge { background: var(--success); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>⚙️ CyberSH Network Admin</h2>
+            <h2>⚙️ TASRIF WIFI ADMIN</h2>
+            <span>Router IP: 192.168.2.1</span>
         </div>
         
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Active Users</h3>
-                <h1 id="stat-users">0</h1>
+        <div class="dashboard-grid">
+            <div class="card"><h3>Active Connections</h3><h1 id="stat-users">0</h1></div>
+            <div class="card"><h3>Available Vouchers</h3><h1 id="stat-vouchers" style="color: var(--primary);">0</h1></div>
+        </div>
+
+        <div class="controls">
+            <h3>🎟️ Generate Access Code</h3>
+            <div style="display: flex; gap: 10px; margin-top:15px; flex-wrap: wrap;">
+                <select id="v-duration" style="flex: 1;">
+                    <option value="60">1 Hour</option>
+                    <option value="180">3 Hours</option>
+                    <option value="1440">24 Hours</option>
+                    <option value="10080">7 Days</option>
+                </select>
+                <button onclick="generateVoucher()" style="flex: 1;">Generate Voucher</button>
             </div>
-            <div class="stat-card">
-                <h3>Available Vouchers</h3>
-                <h1 id="stat-vouchers" style="color: #03A9F4;">0</h1>
-            </div>
+            <p id="gen-msg" style="color: var(--success); font-weight:bold; margin-top:15px;"></p>
         </div>
 
-        <div class="nav">
-            <button class="active" onclick="showTab('generator', this)">Vouchers</button>
-            <button onclick="showTab('editor', this)">UI Editor</button>
-        </div>
-
-        <!-- Voucher Generator Tab -->
-        <div id="generator" class="tab active-tab">
-            <h3>🎟️ Generate New Voucher</h3>
-            <select id="v-duration">
-                <option value="60">1 Hour</option>
-                <option value="180">3 Hours</option>
-                <option value="1440">1 Day</option>
-                <option value="10080">7 Days</option>
-            </select>
-            <button class="action-btn" onclick="generateVoucher()">Generate Code</button>
-            <p id="gen-msg" style="text-align:center; color:#4CAF50; font-weight:bold; margin-top:15px;"></p>
-            
-            <h3 style="margin-top: 30px; border-bottom: 1px solid #333; padding-bottom:10px;">Unused Vouchers (Recent)</h3>
-            <ul id="voucher-list">Loading...</ul>
-        </div>
-
-        <!-- UI Editor Tab -->
-        <div id="editor" class="tab">
-            <h3>💻 Live Portal Editor</h3>
-            <textarea id="codeBox"></textarea>
-            <button class="action-btn" onclick="saveUI()">Save Changes</button>
-            <p id="saveMsg" style="text-align:center; color:#4CAF50; font-weight:bold;"></p>
+        <div class="table-container">
+            <h3>📝 Latest Vouchers</h3>
+            <table>
+                <thead><tr><th>Voucher Code</th><th>Duration</th><th>Status</th></tr></thead>
+                <tbody id="voucher-list"><tr><td colspan="3">Loading...</td></tr></tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        function showTab(id, btn) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active-tab'));
-            document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
-            document.getElementById(id).classList.add('active-tab');
-            btn.classList.add('active');
-        }
-
-        // Fetch Stats Loop
         function loadStats() {
             fetch('/cgi-bin/admin_api?action=stats').then(res => res.json()).then(data => {
                 document.getElementById('stat-users').innerText = data.active;
                 document.getElementById('stat-vouchers').innerText = data.total_vouchers;
-                
                 let vHtml = '';
                 data.voucher_list.forEach(v => {
                     let parts = v.split('|');
                     if(parts.length === 2) {
-                        vHtml += `<li><strong>${parts[0]}</strong> <span>${Math.round(parts[1]/60)} Hrs</span></li>`;
+                        let hrs = Math.round(parts[1]/60);
+                        vHtml += `<tr>
+                            <td><strong>${parts[0]}</strong></td>
+                            <td>${hrs} Hour(s)</td>
+                            <td><span class="badge">Unused</span></td>
+                        </tr>`;
                     }
                 });
-                document.getElementById('voucher-list').innerHTML = vHtml || "No vouchers available.";
+                document.getElementById('voucher-list').innerHTML = vHtml || "<tr><td colspan='3'>No vouchers found.</td></tr>";
             });
         }
-        setInterval(loadStats, 5000);
+        setInterval(loadStats, 3000);
         loadStats();
 
-        // Generate Voucher
         function generateVoucher() {
             let duration = document.getElementById('v-duration').value;
             fetch('/cgi-bin/admin_api?action=generate&duration=' + duration)
             .then(res => res.json()).then(data => {
-                document.getElementById('gen-msg').innerText = "Generated: " + data.code;
+                document.getElementById('gen-msg').innerText = "Successfully Generated: " + data.code;
                 loadStats();
-            });
-        }
-
-        // Load & Save UI
-        fetch('/cgi-bin/admin_api?action=get_ui').then(res => res.text()).then(txt => document.getElementById('codeBox').value = txt);
-        
-        function saveUI() {
-            fetch('/cgi-bin/admin_api?action=save_ui', { method: 'POST', body: document.getElementById('codeBox').value })
-            .then(res => res.json()).then(data => {
-                if(data.status === 'success') document.getElementById('saveMsg').innerText = "UI Updated Successfully!";
-                setTimeout(() => document.getElementById('saveMsg').innerText="", 3000);
             });
         }
     </script>
@@ -216,10 +194,8 @@ cat << 'EOF' > /www/admin/index.html
 </html>
 EOF
 
-# 6. BACKEND APIs (CGI)
-echo "[*] Creating Backend APIs..."
-
-# 6.1 User Auth API
+# 5. BACKEND APIs
+echo "[*] Compiling CGI APIs..."
 cat << 'EOF' > /www/cgi-bin/auth
 #!/bin/sh
 echo "Content-type: application/json"
@@ -234,35 +210,24 @@ if [ -n "$VALID_VOUCHER" ]; then
     iptables -t nat -I CAPTIVE_PORTAL 1 -m mac --mac-source $CLIENT_MAC -j RETURN
     echo "$CLIENT_MAC|$EXPIRY_TIME" >> /tmp/active_users.txt
     sed -i "/^$VOUCHER|/d" /etc/vouchers.txt
-    echo '{"status": "success", "message": "Internet Connected!"}'
+    echo '{"status": "success", "message": "Internet Access Granted!"}'
 else
-    echo '{"status": "error", "message": "Invalid Voucher Code"}'
+    echo '{"status": "error", "message": "Invalid or Expired Code!"}'
 fi
 EOF
 
-# 6.2 Pro Admin API
 cat << 'EOF' > /www/cgi-bin/admin_api
 #!/bin/sh
 echo "Content-type: application/json"
 echo ""
-
-if [ "$QUERY_STRING" = "action=get_ui" ]; then
-    cat /www/index.html
-    exit 0
-elif [ "$QUERY_STRING" = "action=save_ui" ]; then
-    dd ibs=1 count=$CONTENT_LENGTH 2>/dev/null > /www/index.html
-    echo '{"status": "success"}'
-    exit 0
-elif echo "$QUERY_STRING" | grep -q "action=stats"; then
+if echo "$QUERY_STRING" | grep -q "action=stats"; then
     ACTIVE=$(wc -l < /tmp/active_users.txt 2>/dev/null || echo "0")
     TOTAL_V=$(wc -l < /etc/vouchers.txt 2>/dev/null || echo "0")
-    # Get last 5 vouchers to display
-    V_LIST=$(tail -n 5 /etc/vouchers.txt 2>/dev/null | awk '{printf "\"%s\",", $0}' | sed 's/,$//')
+    V_LIST=$(tail -n 10 /etc/vouchers.txt 2>/dev/null | awk '{printf "\"%s\",", $0}' | sed 's/,$//')
     echo "{\"active\":\"$ACTIVE\", \"total_vouchers\":\"$TOTAL_V\", \"voucher_list\":[$V_LIST]}"
     exit 0
 elif echo "$QUERY_STRING" | grep -q "action=generate"; then
     DURATION=$(echo "$QUERY_STRING" | awk -F'duration=' '{print $2}' | awk -F'&' '{print $1}')
-    # Generate 6 digit random code
     NEW_CODE=$(awk -v min=100000 -v max=999999 'BEGIN{srand(); print int(min+rand()*(max-min+1))}')
     echo "$NEW_CODE|$DURATION" >> /etc/vouchers.txt
     echo "{\"status\":\"success\", \"code\":\"$NEW_CODE\"}"
@@ -272,8 +237,8 @@ EOF
 
 chmod +x /www/cgi-bin/*
 
-# 7. CRON & FIREWALL CONFIGURATION
-echo "[*] Setting up Firewall & Session Manager..."
+# 6. FIREWALL & BACKGROUND MANAGER (Dynamic IP 192.168.2.1 Fix)
+echo "[*] Setting up Firewall & Cron..."
 cat << 'EOF' > /usr/bin/session_manager.sh
 #!/bin/sh
 CURRENT_TIME=$(date +%s)
@@ -291,18 +256,20 @@ if ! grep -q "session_manager.sh" /etc/crontabs/root; then
     echo "* * * * * /usr/bin/session_manager.sh" >> /etc/crontabs/root
 fi
 
-if ! grep -q "CAPTIVE_PORTAL" /etc/firewall.user; then
+sed -i '/CAPTIVE_PORTAL/d' /etc/firewall.user 2>/dev/null
 cat << 'EOF' >> /etc/firewall.user
 iptables -t nat -N CAPTIVE_PORTAL 2>/dev/null
 iptables -t nat -I PREROUTING -p tcp --dport 80 -j CAPTIVE_PORTAL
-iptables -t nat -A CAPTIVE_PORTAL -p tcp -j DNAT --to-destination 192.168.1.1:80
+iptables -t nat -A CAPTIVE_PORTAL -d 192.168.2.1 -j RETURN
+iptables -t nat -A CAPTIVE_PORTAL -p tcp -j DNAT --to-destination 192.168.2.1:80
 EOF
-fi
 
-# 8. APPLY CHANGES
-echo "[*] Restarting Network and Firewall Services..."
 /etc/init.d/firewall restart >/dev/null 2>&1
 /etc/init.d/cron restart >/dev/null 2>&1
 
-echo -e "\n\033[1;32m[+] Pro Setup Complete!\033[0m"
-echo -e "Access Admin Panel at: \033[1;33mhttp://192.168.1.1/admin\033[0m"
+echo -e "\n\033[1;32m[+] Installation Successful!\033[0m"
+echo -e "================================================="
+echo -e "🌐 \033[1;36mCaptive Portal:\033[0m http://192.168.2.1"
+echo -e "⚙️ \033[1;33mCustom Admin:  \033[0m http://192.168.2.1/admin"
+echo -e "🛠️ \033[1;34mOpenWrt LuCI:  \033[0m http://192.168.2.1/cgi-bin/luci"
+echo -e "================================================="
